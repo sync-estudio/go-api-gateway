@@ -60,7 +60,6 @@ func main() {
 	})
 	log.Println("[PROXY] Registered health check: /health")
 
-	// Root endpoint with service list
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Only handle exact root path
 		if r.URL.Path != "/" {
