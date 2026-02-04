@@ -1,0 +1,16 @@
+/.env
+/bin/
+/dist/
+/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.coverprofile
+coverage.*
+go.work
+go.work.sum
