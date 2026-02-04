@@ -7,24 +7,40 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	port := "8082"
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file: ", err)
+	}
+
+	port := "8080"
 	mux := http.NewServeMux()
-	authService, err := RegisterService("http://localhost:8080")
+
+	services, err := LoadServicesFromEnv()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// MUX, Route, Registered service (/%route%/)
-	err = RegisterHandler(mux, "/warehouse", authService)
+	for _, service := range services {
+		proxy, err := RegisterService(service.URL)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if err != nil {
-		log.Fatal(err)
+		// MUX, Route, Registered service (/%route%/)
+		err = RegisterHandler(mux, service.Alias, proxy)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Println("[Proxy] Started on " + port)
@@ -34,6 +50,48 @@ func main() {
 		log.Fatal("Failed to start server: " + err.Error())
 	}
 
+}
+
+type ServiceConfig struct {
+	URL   string
+	Alias string
+}
+
+func LoadServicesFromEnv() ([]ServiceConfig, error) {
+	rawURLs := strings.TrimSpace(os.Getenv("SERVICES_URL"))
+	rawAliases := strings.TrimSpace(os.Getenv("SERVICES_ALIASES"))
+
+	if rawURLs == "" || rawAliases == "" {
+		return nil, errors.New("Missing SERVICES_URL or SERVICES_ALIASES")
+	}
+
+	urls := splitAndTrim(rawURLs)
+	aliases := splitAndTrim(rawAliases)
+
+	if len(urls) != len(aliases) {
+		return nil, errors.New("SERVICES_URL and SERVICES_ALIASES must have the same number of entries")
+	}
+
+	services := make([]ServiceConfig, 0, len(urls))
+	for i := range urls {
+		if urls[i] == "" || aliases[i] == "" {
+			return nil, errors.New("SERVICES_URL and SERVICES_ALIASES entries cannot be empty")
+		}
+		services = append(services, ServiceConfig{
+			URL:   urls[i],
+			Alias: aliases[i],
+		})
+	}
+
+	return services, nil
+}
+
+func splitAndTrim(value string) []string {
+	parts := strings.Split(value, ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
 }
 
 func RegisterService(urlPath string) (*httputil.ReverseProxy, error) {
