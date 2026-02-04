@@ -21,7 +21,12 @@ func main() {
 		log.Fatal("Error loading .env file: ", err)
 	}
 
-	port := "8080"
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
+
 	mux := http.NewServeMux()
 
 	services, err := LoadServicesFromEnv()
