@@ -12,11 +12,13 @@ Minimal Go API gateway that proxies multiple upstream services based on path pre
 
 **Configuration**
 Set the following environment variables (comma-separated lists must be the same length):
+- `PORT`: port for the gateway to listen on
 - `SERVICES_URL`: upstream base URLs
 - `SERVICES_ALIASES`: route prefixes for each upstream
 
 Example `.env`:
 ```env
+PORT=8082
 SERVICES_URL="https://service-a.example.com,https://service-b.example.com"
 SERVICES_ALIASES="/warehouse,/auth"
 ```
@@ -25,7 +27,7 @@ SERVICES_ALIASES="/warehouse,/auth"
 ```bash
 go run cmd/app/main.go
 ```
-The gateway listens on `:8080`.
+The gateway listens on `:PORT` (defaults to `:8080` if `PORT` is not set).
 
 **Routing behavior**
 - Requests to `/alias/...` are proxied to the corresponding upstream.
