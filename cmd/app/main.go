@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -187,59 +190,107 @@ func RegisterHandler(mux *http.ServeMux, serviceRoute string, proxy *httputil.Re
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
+	requestLogger := log.New(os.Stdout, "", 0)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// Determine upstream target
-		upstreamTarget := "N/A"
-		for _, service := range registeredServices {
-			if strings.HasPrefix(r.URL.Path, service.Alias) {
-				upstreamTarget = service.URL
-				break
-			}
-		}
+		requestID := getOrCreateRequestID(r)
+		w.Header().Set("X-Request-Id", requestID)
+
+		serviceAlias, upstreamTarget := findServiceForPath(r.URL.Path)
 
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rec, r)
 
-		// Build query string for logging
-		queryString := ""
-		if r.URL.RawQuery != "" {
-			queryString = "?" + r.URL.RawQuery
+		durationMs := time.Since(start).Milliseconds()
+		remoteIP := extractRemoteIP(r.RemoteAddr)
+		userAgent := r.UserAgent()
+		xForwardedFor := r.Header.Get("X-Forwarded-For")
+		xForwardedProto := r.Header.Get("X-Forwarded-Proto")
+		xForwardedHost := r.Header.Get("X-Forwarded-Host")
+
+		fields := []string{
+			fmt.Sprintf("timestamp=%q", time.Now().UTC().Format(time.RFC3339Nano)),
+			fmt.Sprintf("request_id=%q", requestID),
+			fmt.Sprintf("method=%q", r.Method),
+			fmt.Sprintf("path=%q", r.URL.Path),
+			fmt.Sprintf("query=%q", r.URL.RawQuery),
+			fmt.Sprintf("status=%d", rec.status),
+			fmt.Sprintf("duration_ms=%d", durationMs),
+			fmt.Sprintf("bytes=%d", rec.bytes),
+			fmt.Sprintf("service_alias=%q", serviceAlias),
+			fmt.Sprintf("service_upstream=%q", upstreamTarget),
+			fmt.Sprintf("remote_ip=%q", remoteIP),
+			fmt.Sprintf("user_agent=%q", userAgent),
+			fmt.Sprintf("x_forwarded_for=%q", xForwardedFor),
+			fmt.Sprintf("x_forwarded_proto=%q", xForwardedProto),
+			fmt.Sprintf("x_forwarded_host=%q", xForwardedHost),
 		}
 
-		// Log selected headers (excluding sensitive ones)
-		headers := make([]string, 0)
-		for key, values := range r.Header {
-			// Skip potentially sensitive headers
-			if key == "Authorization" || key == "Cookie" {
-				headers = append(headers, fmt.Sprintf("%s: [REDACTED]", key))
-			} else {
-				headers = append(headers, fmt.Sprintf("%s: %s", key, strings.Join(values, ", ")))
-			}
-		}
-		headersStr := strings.Join(headers, " | ")
-
-		log.Printf(
-			"[REQUEST] %s %s%s | From: %s | To: %s | Status: %s | Duration: %s | Headers: %s",
-			r.Method,
-			r.URL.Path,
-			queryString,
-			r.RemoteAddr,
-			upstreamTarget,
-			http.StatusText(rec.status),
-			time.Since(start),
-			headersStr,
-		)
+		requestLogger.Println(strings.Join(fields, " "))
 	})
 }
 
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+	bytes  int
 }
 
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	n, err := r.ResponseWriter.Write(b)
+	r.bytes += n
+	return n, err
+}
+
+func getOrCreateRequestID(r *http.Request) string {
+	requestID := strings.TrimSpace(r.Header.Get("X-Request-Id"))
+	if requestID != "" {
+		return requestID
+	}
+	return generateRequestID()
+}
+
+func generateRequestID() string {
+	buf := make([]byte, 12)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("req_%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf)
+}
+
+func extractRemoteIP(remoteAddr string) string {
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
+	}
+	return remoteAddr
+}
+
+func findServiceForPath(path string) (string, string) {
+	for _, service := range registeredServices {
+		if matchAlias(path, service.Alias) {
+			return service.Alias, service.URL
+		}
+	}
+	return "", ""
+}
+
+func matchAlias(path string, alias string) bool {
+	alias = strings.TrimSpace(alias)
+	if alias == "" || alias == "/" {
+		return false
+	}
+	base := strings.TrimSuffix(alias, "/")
+	if path == base {
+		return true
+	}
+	return strings.HasPrefix(path, base+"/")
 }
