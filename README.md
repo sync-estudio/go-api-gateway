@@ -3,39 +3,62 @@
 Minimal Go API gateway that proxies multiple upstream services based on path prefixes.
 
 **What it does**
-- Reads service URLs and route aliases from environment variables.
+- Reads service configuration from `config.yaml`.
 - Registers each alias as a reverse proxy route.
 - Logs requests with method, path, remote address, status, and duration.
 
 **Requirements**
 - Go 1.24+
 
-**Configuration**
-Set the following environment variables (comma-separated lists must be the same length):
-- `PORT`: port for the gateway to listen on
-- `SERVICES_URL`: upstream base URLs
-- `SERVICES_ALIASES`: route prefixes for each upstream
+## Configuration
 
-Example `.env`:
-```env
-PORT=8082
-SERVICES_URL="https://service-a.example.com,https://service-b.example.com"
-SERVICES_ALIASES="/warehouse,/auth"
+The gateway is configured via `config.yaml`:
+
+```yaml
+proxy:
+  host: "localhost"
+  port: 8080
+services:
+  - url: "https://service-a.example.com"
+    alias: "/warehouse"
+  - url: "https://service-b.example.com"
+    alias: "/auth"
 ```
 
-**Run**
+### Configuration Options
+
+| Field | Description |
+|-------|-------------|
+| `proxy.host` | Host address for the gateway (currently informational) |
+| `proxy.port` | Port for the gateway to listen on |
+| `services[].url` | Upstream service base URL |
+| `services[].alias` | Route prefix that maps to the upstream |
+
+### Environment Variable Overrides
+
+The `PORT` environment variable overrides `proxy.port` from the config file. This is useful for deployment platforms like Railway or Docker:
+
+```bash
+PORT=3000 go run cmd/app/main.go
+```
+
+## Run
+
 ```bash
 go run cmd/app/main.go
 ```
-The gateway listens on `:PORT` (defaults to `:8080` if `PORT` is not set).
 
-**Routing behavior**
+The gateway listens on the port specified in `config.yaml` (defaults to `8080` if not set).
+
+## Routing Behavior
+
 - Requests to `/alias/...` are proxied to the corresponding upstream.
 - Requests to `/alias` redirect to `/alias/`.
 - The alias prefix is stripped before proxying.
 
 **Example**
-With the sample `.env` above:
+
+With the sample config above:
 - `GET /warehouse/items` -> `https://service-a.example.com/items`
 - `GET /auth/login` -> `https://service-b.example.com/login`
 
@@ -86,9 +109,12 @@ Proxies requests to configured upstream services based on the alias prefix.
 **Examples**:
 
 Given configuration:
-```env
-SERVICES_URL="https://service-a.example.com,https://service-b.example.com"
-SERVICES_ALIASES="/warehouse,/auth"
+```yaml
+services:
+  - url: "https://service-a.example.com"
+    alias: "/warehouse"
+  - url: "https://service-b.example.com"
+    alias: "/auth"
 ```
 
 **Request**: `GET /warehouse/items?status=active`
@@ -126,10 +152,34 @@ GET /warehouse/items
 → 502 Bad Gateway (if service-a.example.com is unreachable)
 ```
 
-**Missing configuration**:
+**Missing or invalid configuration**:
 ```
 Server fails to start with error:
-"Missing SERVICES_URL or SERVICES_ALIASES"
+"failed to read config.yaml: open config.yaml: no such file or directory"
+```
+
+## Project Structure
+
+```
+api-gateway/
+├── cmd/
+│   └── app/
+│       └── main.go              # Entry point
+├── internal/
+│   ├── config/
+│   │   └── config.go            # YAML configuration loading
+│   ├── handler/
+│   │   ├── health.go            # Health check handler
+│   │   └── root.go              # Root endpoint handler
+│   ├── middleware/
+│   │   └── logging.go           # Request logging middleware
+│   ├── proxy/
+│   │   └── proxy.go             # Reverse proxy creation
+│   └── service/
+│       └── registry.go          # Service registry
+├── config.yaml                  # Gateway configuration
+├── go.mod
+└── README.md
 ```
 
 ## TODO
@@ -153,6 +203,7 @@ Server fails to start with error:
 - [ ] **TLS/SSL Configuration**: Custom TLS settings for upstream connections
 
 ## Notes
-- The `.env` file is loaded automatically (via `godotenv`) when present.
-- If you add or remove services, update both env lists to keep them aligned.
-- All requests are logged with method, path, remote address, upstream target, status, duration, and headers (sensitive headers like Authorization are redacted in logs).
+
+- Configuration is loaded from `config.yaml` at startup.
+- The `PORT` environment variable overrides the port in the config file.
+- All requests are logged with method, path, remote address, upstream target, status, duration, and headers.

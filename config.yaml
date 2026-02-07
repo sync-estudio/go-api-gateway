@@ -1,0 +1,8 @@
+proxy:
+  host: "localhost"
+  port: 8080
+services:
+  - url: "https://ima-warehouse-service-production.up.railway.app"
+    alias: "/warehouse"
+  - url: "https://ima-warehouse-service-production.up.railway.app"
+    alias: "/auth"
