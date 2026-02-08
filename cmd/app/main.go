@@ -16,6 +16,11 @@ import (
 func main() {
 	// Load configuration from YAML file
 	cfg, err := config.LoadFromFile("config.yaml")
+
+	if err != nil {
+		fmt.Printf("[CONFIG] %s", err)
+	}
+
 	port := strconv.Itoa(cfg.Proxy.Port) // On cfg its requested as int
 
 	if err != nil {

@@ -2,5 +2,5 @@ proxy:
   host: "localhost"
   port: 8080
 services:
-  - url: # http://domain.internal:port
-    alias:  # /service
+  - url: "http://ima-warehouse-service.railway.internal:8080"
+    alias: /warehouse
