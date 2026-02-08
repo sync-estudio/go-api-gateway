@@ -7,7 +7,6 @@ import (
 	"sync.gateway/internal/service"
 )
 
-// NewRootHandler creates a handler for the root endpoint that shows available routes.
 func NewRootHandler(registry *service.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only handle exact root path

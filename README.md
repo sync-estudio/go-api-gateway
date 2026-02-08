@@ -19,7 +19,7 @@ proxy:
   host: "localhost"
   port: 8080
 services:
-  - url: "https://service-a.example.com"
+  - url: "https://service-a.example.com" # MUST use internal links on production, to enforce security
     alias: "/warehouse"
   - url: "https://service-b.example.com"
     alias: "/auth"
