@@ -27,7 +27,6 @@ func NewProxy(targetURL string) (*httputil.ReverseProxy, error) {
 	return proxy, nil
 }
 
-// It handles both exact routes and subtree routing with proper path stripping.
 func RegisterHandler(mux *http.ServeMux, serviceRoute string, proxy *httputil.ReverseProxy) error {
 	if !strings.HasPrefix(serviceRoute, "/") {
 		return errors.New("route must start with /")

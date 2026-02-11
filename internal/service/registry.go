@@ -39,6 +39,18 @@ func (r *Registry) FindForPath(path string) (alias, url string) {
 	return "", ""
 }
 
+// FindServiceForPath finds the full service config for the given path.
+// Returns nil if no matching service is found.
+// This is used by the auth middleware to check auth requirements.
+func (r *Registry) FindServiceForPath(path string) *config.ServiceConfig {
+	for i := range r.services {
+		if matchAlias(path, r.services[i].Alias) {
+			return &r.services[i]
+		}
+	}
+	return nil
+}
+
 // matchAlias checks if a path matches a service alias.
 func matchAlias(path, alias string) bool {
 	alias = strings.TrimSpace(alias)

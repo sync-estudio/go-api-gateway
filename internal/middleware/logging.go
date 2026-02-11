@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"sync.gateway/internal/auth"
 	"sync.gateway/internal/service"
 )
 
@@ -38,6 +39,12 @@ func NewLoggingMiddleware(registry *service.Registry) func(http.Handler) http.Ha
 			xForwardedProto := r.Header.Get("X-Forwarded-Proto")
 			xForwardedHost := r.Header.Get("X-Forwarded-Host")
 
+			// Extract user ID from context if available (set by auth middleware)
+			userID := ""
+			if identity, ok := auth.FromContext(r.Context()); ok && identity != nil {
+				userID = identity.UserID
+			}
+
 			fields := []string{
 				fmt.Sprintf("timestamp=%q", time.Now().UTC().Format(time.RFC3339Nano)),
 				fmt.Sprintf("request_id=%q", requestID),
@@ -50,6 +57,7 @@ func NewLoggingMiddleware(registry *service.Registry) func(http.Handler) http.Ha
 				fmt.Sprintf("service_alias=%q", serviceAlias),
 				fmt.Sprintf("service_upstream=%q", upstreamTarget),
 				fmt.Sprintf("remote_ip=%q", remoteIP),
+				fmt.Sprintf("user_id=%q", userID),
 				fmt.Sprintf("user_agent=%q", userAgent),
 				fmt.Sprintf("x_forwarded_for=%q", xForwardedFor),
 				fmt.Sprintf("x_forwarded_proto=%q", xForwardedProto),
