@@ -1,0 +1,20 @@
+proxy:
+  host: "localhost"
+  port: 8080
+
+auth:
+  default_provider: "auth-service"
+  
+  providers:
+    auth-service:
+      type: "jwks"
+      jwks_url: "http://localhost:3000/auth/jwks"
+      refresh_interval: 1h
+      issuer: "http://localhost:3000/auth/jwks" # Optional but recommended
+
+services:
+  - url: "http://localhost:4321"
+    alias: /data-provider
+    auth:
+      enabled: true
+      provider: "" # uses default provider if empty
