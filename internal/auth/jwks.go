@@ -70,6 +70,10 @@ func NewJWKSProvider(url string, refreshInterval time.Duration) *JWKSProvider {
 }
 
 func (p *JWKSProvider) Start(ctx context.Context) error {
+	if p.refreshInterval <= 0 {
+		return fmt.Errorf("invalid JWKS refresh interval: %s (must be > 0)", p.refreshInterval)
+	}
+
 	if err := p.refresh(); err != nil {
 		return fmt.Errorf("initial JWKS fetch failed: %w", err)
 	}
