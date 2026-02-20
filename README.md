@@ -59,6 +59,17 @@ REDIS_PRIVATE_URL=redis://default:<password>@<redis-service>.railway.internal:63
 
 Avoid using `*.proxy.rlwy.net` if you want traffic to stay on private networking.
 
+If using `REDISHOST`/`REDISPORT`, set:
+
+```bash
+REDISHOST=redis.railway.internal
+REDISPORT=6379
+REDISUSER=default
+REDISPASSWORD=<password>
+```
+
+`REDISHOST` must be a hostname only (no `http://` or `https://`).
+
 ## Run
 
 ```bash
