@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
+	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"sync.gateway/internal/auth"
 	"sync.gateway/internal/config"
 	"sync.gateway/internal/handler"
@@ -19,8 +24,13 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(".env"); err != nil && !os.IsNotExist(err) {
+		log.Printf("[ENV] Failed to load .env file: %v", err)
+	}
+
 	// Load configuration from YAML file
 	cfg, err := config.LoadFromFile("config.yaml")
+
 	if err != nil {
 		log.Fatalf("[CONFIG] Failed to load config: %v", err)
 	}
@@ -28,6 +38,18 @@ func main() {
 	port := strconv.Itoa(cfg.Proxy.Port)
 	if port == "" {
 		port = "8080"
+	}
+
+	redisOpts, redisSource, err := loadRedisOptions()
+	if err != nil {
+		log.Fatalf("[RATE-LIMITER] %v", err)
+	}
+
+	rdb := redis.NewClient(redisOpts)
+	log.Printf("[REDIS] Using Redis configuration from %s", redisSource)
+
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("[REDIS] Failed to connect to Redis: %v", err)
 	}
 
 	registry := service.New()
@@ -62,6 +84,9 @@ func main() {
 	log.Println("[PROXY] Registered root endpoint: /")
 
 	var httpHandler http.Handler = mux
+
+	// RATE LIMITER
+	httpHandler = middleware.NewRateLimiter(rdb, registry)(httpHandler)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -104,4 +129,41 @@ func main() {
 	if err := http.ListenAndServe(":"+port, httpHandler); err != nil {
 		log.Fatalf("[PROXY] Server failed: %v", err)
 	}
+}
+
+func loadRedisOptions() (*redis.Options, string, error) {
+	for _, envName := range []string{"REDIS_PRIVATE_URL", "REDIS_ADDR"} {
+		value := strings.TrimSpace(os.Getenv(envName))
+
+		if value == "" {
+			continue
+		}
+
+		if strings.HasPrefix(value, "redis://") || strings.HasPrefix(value, "rediss://") {
+			parsedOpts, err := redis.ParseURL(value)
+			if err != nil {
+				return nil, "", fmt.Errorf("invalid %s: %w", envName, err)
+			}
+			return parsedOpts, envName, nil
+		}
+
+		return &redis.Options{
+			Addr: value,
+			DB:   0,
+		}, envName, nil
+	}
+
+	host := strings.TrimSpace(os.Getenv("REDISHOST"))
+	port := strings.TrimSpace(os.Getenv("REDISPORT"))
+
+	if host != "" && port != "" {
+		return &redis.Options{
+			Addr:     net.JoinHostPort(host, port),
+			Username: strings.TrimSpace(os.Getenv("REDISUSER")),
+			Password: os.Getenv("REDISPASSWORD"),
+			DB:       0,
+		}, "REDISHOST/REDISPORT", nil
+	}
+
+	return nil, "", errors.New("missing Redis configuration: set REDIS_PRIVATE_URL (Railway private), REDIS_URL, REDIS_ADDR, or REDISHOST/REDISPORT")
 }

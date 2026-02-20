@@ -23,11 +23,18 @@ type ServiceAuthConfig struct {
 	Provider string `yaml:"provider"` // Provider name (references auth.providers key, uses default if empty)
 }
 
+// ServiceRateLimitConfig configures rate limiting for a specific service.
+type ServiceRateLimitConfig struct {
+	Requests int64         `yaml:"requests"` // Max requests allowed in the window
+	Window   time.Duration `yaml:"window"`   // Time window for request counting (e.g. 1m)
+}
+
 // ServiceConfig holds a service URL and its route alias.
 type ServiceConfig struct {
-	URL   string            `yaml:"url"`
-	Alias string            `yaml:"alias"`
-	Auth  ServiceAuthConfig `yaml:"auth"`
+	URL       string                 `yaml:"url"`
+	Alias     string                 `yaml:"alias"`
+	Auth      ServiceAuthConfig      `yaml:"auth"`
+	RateLimit ServiceRateLimitConfig `yaml:"rate_limit"`
 }
 
 // ProxyConfig holds the proxy server configuration.
@@ -96,6 +103,13 @@ func applyDefaults(cfg *YAMLConfig) {
 	for i := range cfg.Services {
 		if cfg.Services[i].Auth.Enabled && cfg.Services[i].Auth.Provider == "" {
 			cfg.Services[i].Auth.Provider = cfg.Auth.DefaultProvider
+		}
+
+		if cfg.Services[i].RateLimit.Requests == 0 {
+			cfg.Services[i].RateLimit.Requests = 200
+		}
+		if cfg.Services[i].RateLimit.Window == 0 {
+			cfg.Services[i].RateLimit.Window = time.Minute
 		}
 	}
 }

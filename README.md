@@ -42,6 +42,23 @@ The `PORT` environment variable overrides `proxy.port` from the config file. Thi
 PORT=3000 go run cmd/app/main.go
 ```
 
+### Redis (Rate Limiter)
+
+The gateway requires Redis for rate limiting. Redis configuration is resolved in this order:
+
+1. `REDIS_PRIVATE_URL` (recommended on Railway private networking)
+2. `REDIS_URL`
+3. `REDIS_ADDR`
+4. `REDISHOST` + `REDISPORT` (+ optional `REDISUSER` / `REDISPASSWORD`)
+
+For Railway private networking, set:
+
+```bash
+REDIS_PRIVATE_URL=redis://default:<password>@<redis-service>.railway.internal:6379
+```
+
+Avoid using `*.proxy.rlwy.net` if you want traffic to stay on private networking.
+
 ## Run
 
 ```bash

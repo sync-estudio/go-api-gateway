@@ -1,0 +1,23 @@
+proxy:
+  host: "localhost"
+  port: 8080
+
+auth:
+  default_provider: "auth-service"
+  
+  providers:
+    auth-service:
+      type: "jwks"
+      jwks_url: "http://auth-service.railway.internal:8080/auth/jwks"
+      refresh_interval: 1h
+      issuer: "" # Optional but recommended
+
+services:
+  - url: "http://ima-warehouse-service.railway.internal:8080"
+    alias: /warehouse
+    auth:
+      enabled: false
+      provider: "" # uses default provider if empty
+    rate_limit:
+      requests: 200
+      window: 1m
