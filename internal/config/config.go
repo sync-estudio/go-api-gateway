@@ -37,6 +37,17 @@ type ServiceConfig struct {
 	RateLimit ServiceRateLimitConfig `yaml:"rate_limit"`
 }
 
+// CORSConfig holds CORS middleware configuration.
+type CORSConfig struct {
+	AllowedOrigins   []string `yaml:"allowed_origins"`
+	AllowedMethods   []string `yaml:"allowed_methods"`
+	AllowedHeaders   []string `yaml:"allowed_headers"`
+	ExposedHeaders   []string `yaml:"exposed_headers"`
+	AllowCredentials bool     `yaml:"allow_credentials"`
+	MaxAge           int      `yaml:"max_age"`
+	Enabled          bool     `yaml:"enabled"`
+}
+
 // ProxyConfig holds the proxy server configuration.
 type ProxyConfig struct {
 	Host string `yaml:"host"`
@@ -53,6 +64,7 @@ type AuthConfig struct {
 type YAMLConfig struct {
 	Proxy    ProxyConfig     `yaml:"proxy"`
 	Auth     AuthConfig      `yaml:"auth"`
+	CORS     CORSConfig      `yaml:"cors"`
 	Services []ServiceConfig `yaml:"services"`
 }
 
@@ -86,6 +98,11 @@ func applyDefaults(cfg *YAMLConfig) {
 	// Default proxy port
 	if cfg.Proxy.Port == 0 {
 		cfg.Proxy.Port = 8080
+	}
+
+	// Default CORS settings
+	if cfg.CORS.MaxAge == 0 {
+		cfg.CORS.MaxAge = 86400
 	}
 
 	// Default refresh interval for auth providers
