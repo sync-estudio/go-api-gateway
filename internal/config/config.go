@@ -43,6 +43,11 @@ type ProxyConfig struct {
 	Port int    `yaml:"port"`
 }
 
+// HotReloadConfig holds hot reload configuration.
+type HotReloadConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
 // AuthConfig holds all authentication configuration.
 type AuthConfig struct {
 	DefaultProvider string                        `yaml:"default_provider"` // Default provider for services without explicit provider
@@ -51,9 +56,10 @@ type AuthConfig struct {
 
 // YAMLConfig is the root configuration structure.
 type YAMLConfig struct {
-	Proxy    ProxyConfig     `yaml:"proxy"`
-	Auth     AuthConfig      `yaml:"auth"`
-	Services []ServiceConfig `yaml:"services"`
+	Proxy     ProxyConfig     `yaml:"proxy"`
+	Auth      AuthConfig      `yaml:"auth"`
+	HotReload HotReloadConfig `yaml:"hot_reload"`
+	Services  []ServiceConfig `yaml:"services"`
 }
 
 // LoadFromFile loads configuration from a YAML file.
