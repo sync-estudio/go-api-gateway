@@ -129,6 +129,28 @@ func main() {
 
 	httpHandler = middleware.NewLoggingMiddleware(registry)(httpHandler)
 
+	// HOT RELOAD
+	if cfg.HotReload.Enabled {
+		watcher, err := config.WatchConfig("config.yaml", func(newCfg *config.YAMLConfig) {
+			log.Println("[HOT-RELOAD] Configuration changed, updating registry...")
+			registry.Clear()
+			registry.Add(newCfg.Services...)
+			log.Printf("[HOT-RELOAD] Registry updated with %d services", len(newCfg.Services))
+			log.Printf("[HOT-RELOAD] NOTE: New routes require server restart")
+		})
+		if err != nil {
+			log.Printf("[HOT-RELOAD] Failed to enable hot reload: %v", err)
+		} else {
+			go func() {
+				<-ctx.Done()
+				if watcher != nil {
+					watcher.Stop()
+				}
+			}()
+			log.Println("[HOT-RELOAD] Hot reload enabled")
+		}
+	}
+
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

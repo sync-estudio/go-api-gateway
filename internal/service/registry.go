@@ -23,6 +23,11 @@ func (r *Registry) Add(services ...config.ServiceConfig) {
 	r.services = append(r.services, services...)
 }
 
+// Clear removes all services from the registry.
+func (r *Registry) Clear() {
+	r.services = make([]config.ServiceConfig, 0)
+}
+
 // All returns all registered services.
 func (r *Registry) All() []config.ServiceConfig {
 	return r.services

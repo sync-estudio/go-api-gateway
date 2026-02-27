@@ -239,7 +239,7 @@ api-gateway/
 - [ ] **Metrics & Monitoring**: Expose Prometheus metrics endpoint for request counts, latencies, and error rates
 - [ ] **Request/Response Transformation**: Support for request/response body and header transformations
 - [ ] **WebSocket Support**: Enable WebSocket proxying for real-time applications
-- [ ] **Configuration Hot-Reload**: Reload service configuration without restarting the gateway
+- [x] **Configuration Hot-Reload**: Reload service configuration without restarting the gateway
 - [ ] **Admin API**: Runtime configuration management (add/remove routes, view stats)
 - [x] **CORS Support**: Configurable CORS headers for browser-based clients
 - [ ] **Request Validation**: Schema-based request validation before proxying
