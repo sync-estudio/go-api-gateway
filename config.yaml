@@ -2,9 +2,12 @@ proxy:
   host: "localhost"
   port: 8080
 
+hot_reload:
+  enabled: true
+
 auth:
   default_provider: "auth-service"
-  
+
   providers:
     auth-service:
       type: "jwks"
