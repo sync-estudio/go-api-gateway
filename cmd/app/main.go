@@ -88,6 +88,20 @@ func main() {
 	// RATE LIMITER
 	httpHandler = middleware.NewRateLimiter(rdb, registry)(httpHandler)
 
+	// CORS MIDDLEWARE
+	if cfg.CORS.Enabled {
+		corsMiddleware := middleware.NewCorsMiddleware(&middleware.CORSConfig{
+			AllowedOrigins:   cfg.CORS.AllowedOrigins,
+			AllowedMethods:   cfg.CORS.AllowedMethods,
+			AllowedHeaders:   cfg.CORS.AllowedHeaders,
+			ExposedHeaders:   cfg.CORS.ExposedHeaders,
+			AllowCredentials: cfg.CORS.AllowCredentials,
+			MaxAge:           cfg.CORS.MaxAge,
+		})
+		httpHandler = corsMiddleware(httpHandler)
+		log.Println("[CORS] CORS middleware enabled")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

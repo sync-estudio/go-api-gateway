@@ -29,13 +29,19 @@ services:
 
 ### Configuration Options
 
-| Field                | Description                                            |
-| -------------------- | ------------------------------------------------------ |
-| `proxy.host`         | Host address for the gateway (currently informational) |
-| `proxy.port`         | Port for the gateway to listen on                      |
-| `hot_reload.enabled` | Enable automatic config reload on file change          |
-| `services[].url`     | Upstream service base URL                              |
-| `services[].alias`   | Route prefix that maps to the upstream                 |
+| Field                    | Description                                            |
+| ------------------------ | ------------------------------------------------------ |
+| `proxy.host`             | Host address for the gateway (currently informational) |
+| `proxy.port`             | Port for the gateway to listen on                      |
+| `cors.enabled`           | Enable CORS middleware                                 |
+| `cors.allowed_origins`   | List of allowed origins (supports "\*" for all)        |
+| `cors.allowed_methods`   | List of allowed HTTP methods                           |
+| `cors.allowed_headers`   | List of allowed request headers                        |
+| `cors.exposed_headers`   | List of headers exposed to the browser                 |
+| `cors.allow_credentials` | Allow credentials (cookies, auth headers)              |
+| `cors.max_age`           | Preflight cache duration in seconds                    |
+| `services[].url`         | Upstream service base URL                              |
+| `services[].alias`       | Route prefix that maps to the upstream                 |
 
 ### Environment Variable Overrides
 
@@ -227,15 +233,15 @@ api-gateway/
 
 ### Planned Features
 
-- [ ] **Authentication & Authorization**: Add API key or JWT-based authentication layer
-- [ ] **Rate Limiting**: Implement per-route or per-client rate limiting
+- [x] **Authentication & Authorization**: Add API key or JWT-based authentication layer
+- [x] **Rate Limiting**: Implement per-route or per-client rate limiting
 - [ ] **Circuit Breaker**: Add circuit breaker pattern to handle upstream failures gracefully
 - [ ] **Metrics & Monitoring**: Expose Prometheus metrics endpoint for request counts, latencies, and error rates
 - [ ] **Request/Response Transformation**: Support for request/response body and header transformations
 - [ ] **WebSocket Support**: Enable WebSocket proxying for real-time applications
 - [x] **Configuration Hot-Reload**: Reload service configuration without restarting the gateway
 - [ ] **Admin API**: Runtime configuration management (add/remove routes, view stats)
-- [ ] **CORS Support**: Configurable CORS headers for browser-based clients
+- [x] **CORS Support**: Configurable CORS headers for browser-based clients
 - [ ] **Request Validation**: Schema-based request validation before proxying
 - [ ] **Caching**: Response caching for GET requests with configurable TTL
 - [ ] **Load Balancing**: Support multiple upstream instances per service with load balancing
