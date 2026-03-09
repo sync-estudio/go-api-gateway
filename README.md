@@ -4,27 +4,37 @@ Minimal Go API gateway that proxies multiple upstream services based on path pre
 
 **What it does**
 
-- Reads service configuration from `config.yaml`.
+- Reads service configuration from `config.json`.
 - Registers each alias as a reverse proxy route.
 - Logs requests with method, path, remote address, status, and duration.
+- Includes `/admin` UI for live config updates without restart.
 
 **Requirements**
 
 - Go 1.24+
+- Node 20+ (only if developing the `/admin` UI locally)
 
 ## Configuration
 
-The gateway is configured via `config.yaml`:
+The gateway is configured via `config.json`:
 
-```yaml
-proxy:
-  host: "localhost"
-  port: 8080
-services:
-  - url: "https://service-a.example.com" # MUST use internal links on production, to enforce security
-    alias: "/warehouse"
-  - url: "https://service-b.example.com"
-    alias: "/auth"
+```json
+{
+  "proxy": {
+    "host": "localhost",
+    "port": 8080
+  },
+  "services": [
+    {
+      "url": "https://service-a.example.com",
+      "alias": "/warehouse"
+    },
+    {
+      "url": "https://service-b.example.com",
+      "alias": "/auth"
+    }
+  ]
+}
 ```
 
 ### Configuration Options
@@ -45,10 +55,60 @@ services:
 
 ### Environment Variable Overrides
 
-The `PORT` environment variable overrides `proxy.port` from the config file. This is useful for deployment platforms like Railway or Docker:
+The `PORT` environment variable overrides `proxy.port` from the config file. You can also override config location with `CONFIG_PATH`.
 
 ```bash
-PORT=3000 go run cmd/app/main.go
+PORT=3000 CONFIG_PATH=./config.json go run cmd/app/main.go
+```
+
+### Admin UI (Live Config)
+
+The gateway includes a Svelte + Tailwind admin dashboard at `/admin` with form-based config editing (plus optional advanced JSON view). Changes are applied live without restart.
+
+Set these env vars to enable admin login:
+
+```bash
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=super-secret-temp-password
+ADMIN_SESSION_SECRET=replace-with-a-long-random-secret
+# optional (default 30m)
+ADMIN_SESSION_TTL=30m
+```
+
+If any of `ADMIN_EMAIL`, `ADMIN_PASSWORD`, or `ADMIN_SESSION_SECRET` is missing, admin login/API stays disabled.
+
+UI development commands:
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+UI production build:
+
+```bash
+cd ui
+npm run build
+```
+
+The Docker build compiles the UI automatically and copies `ui/dist` into the final runtime image.
+
+When running with Docker Compose, live config edits are persisted to `./config/config.json` on the host.
+
+Makefile shortcuts:
+
+```bash
+make ui-install
+make ui-dev
+make ui-build
+make run
+make test
+make build
+make docker-build
+make up
+make down
+make logs
 ```
 
 ### Redis (Rate Limiter)
@@ -85,7 +145,7 @@ REDISPASSWORD=<password>
 go run cmd/app/main.go
 ```
 
-The gateway listens on the port specified in `config.yaml` (defaults to `8080` if not set).
+The gateway listens on the port specified in `config.json` (defaults to `8080` if not set).
 
 ## Routing Behavior
 
@@ -150,12 +210,13 @@ Proxies requests to configured upstream services based on the alias prefix.
 
 Given configuration:
 
-```yaml
-services:
-  - url: "https://service-a.example.com"
-    alias: "/warehouse"
-  - url: "https://service-b.example.com"
-    alias: "/auth"
+```json
+{
+  "services": [
+    { "url": "https://service-a.example.com", "alias": "/warehouse" },
+    { "url": "https://service-b.example.com", "alias": "/auth" }
+  ]
+}
 ```
 
 **Request**: `GET /warehouse/items?status=active`
@@ -202,7 +263,7 @@ GET /warehouse/items
 
 ```
 Server fails to start with error:
-"failed to read config.yaml: open config.yaml: no such file or directory"
+"failed to read config.json: open config.json: no such file or directory"
 ```
 
 ## Project Structure
@@ -214,17 +275,25 @@ api-gateway/
 │       └── main.go              # Entry point
 ├── internal/
 │   ├── config/
-│   │   └── config.go            # YAML configuration loading
+│   │   └── config.go            # JSON/YAML configuration loading + validation
+│   ├── admin/
+│   │   └── handler.go           # Admin auth/session + config API + static UI serving
 │   ├── handler/
 │   │   ├── health.go            # Health check handler
 │   │   └── root.go              # Root endpoint handler
 │   ├── middleware/
 │   │   └── logging.go           # Request logging middleware
+│   ├── runtime/
+│   │   └── manager.go           # Hot-swappable runtime config manager
 │   ├── proxy/
 │   │   └── proxy.go             # Reverse proxy creation
 │   └── service/
 │       └── registry.go          # Service registry
-├── config.yaml                  # Gateway configuration
+├── ui/                          # Svelte + Tailwind admin frontend
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.js
+├── config.json                  # Gateway configuration
 ├── go.mod
 └── README.md
 ```
@@ -251,6 +320,7 @@ api-gateway/
 
 ## Notes
 
-- Configuration is loaded from `config.yaml` at startup.
+- Configuration is loaded from `config.json` at startup.
+- If `config.json` does not exist and `config.yaml` exists, the gateway loads YAML once and migrates to JSON.
 - The `PORT` environment variable overrides the port in the config file.
 - All requests are logged with method, path, remote address, upstream target, status, duration, and headers.

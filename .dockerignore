@@ -2,3 +2,4 @@
 .gitignore
 .env
 README.md
+ui/node_modules

@@ -12,15 +12,13 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
-	"sync.gateway/internal/auth"
+	"sync.gateway/internal/admin"
 	"sync.gateway/internal/config"
-	"sync.gateway/internal/handler"
-	"sync.gateway/internal/middleware"
-	"sync.gateway/internal/proxy"
-	"sync.gateway/internal/service"
+	"sync.gateway/internal/runtime"
 )
 
 func main() {
@@ -28,16 +26,27 @@ func main() {
 		log.Printf("[ENV] Failed to load .env file: %v", err)
 	}
 
-	// Load configuration from YAML file
-	cfg, err := config.LoadFromFile("config.yaml")
+	configPath := strings.TrimSpace(os.Getenv("CONFIG_PATH"))
+	if configPath == "" {
+		configPath = "config.json"
+	}
+
+	cfg, loadedFrom, err := config.LoadWithYAMLFallback(configPath, "config.yaml")
 
 	if err != nil {
 		log.Fatalf("[CONFIG] Failed to load config: %v", err)
 	}
 
-	port := strconv.Itoa(cfg.Proxy.Port)
+	if loadedFrom != configPath {
+		log.Printf("[CONFIG] Loaded from fallback file: %s", loadedFrom)
+	}
+
+	port := strings.TrimSpace(os.Getenv("PORT"))
 	if port == "" {
-		port = "8080"
+		port = strconv.Itoa(cfg.Proxy.Port)
+		if port == "" {
+			port = "8080"
+		}
 	}
 
 	redisOpts, redisSource, err := loadRedisOptions()
@@ -52,101 +61,54 @@ func main() {
 		log.Fatalf("[REDIS] Failed to connect to Redis: %v", err)
 	}
 
-	registry := service.New()
-	registry.Add(cfg.Services...)
-
-	mux := http.NewServeMux()
-
-	// Register proxy handlers for each service
-	for _, svc := range cfg.Services {
-		p, err := proxy.NewProxy(svc.URL)
-		if err != nil {
-			log.Fatalf("[PROXY] Failed to create proxy for %s: %v", svc.Alias, err)
-		}
-
-		if err := proxy.RegisterHandler(mux, svc.Alias, p); err != nil {
-			log.Fatalf("[PROXY] Failed to register handler for %s: %v", svc.Alias, err)
-		}
-
-		authStatus := "disabled"
-		if svc.Auth.Enabled {
-			authStatus = fmt.Sprintf("enabled (provider: %s)", svc.Auth.Provider)
-		}
-		log.Printf("[PROXY] Registered route: %s -> %s [auth: %s]", svc.Alias, svc.URL, authStatus)
+	manager := runtime.NewManager(rdb)
+	if err := manager.Init(cfg); err != nil {
+		log.Fatalf("[CONFIG] Failed to initialize gateway runtime: %v", err)
 	}
 
-	// Register health check endpoint
-	mux.HandleFunc("/health", handler.HealthHandler())
-	log.Println("[PROXY] Registered health check: /health")
-
-	// Register root endpoint
-	mux.HandleFunc("/", handler.NewRootHandler(registry))
-	log.Println("[PROXY] Registered root endpoint: /")
-
-	var httpHandler http.Handler = mux
-
-	// RATE LIMITER
-	httpHandler = middleware.NewRateLimiter(rdb, registry)(httpHandler)
-
-	// CORS MIDDLEWARE
-	if cfg.CORS.Enabled {
-		corsMiddleware := middleware.NewCorsMiddleware(&middleware.CORSConfig{
-			AllowedOrigins:   cfg.CORS.AllowedOrigins,
-			AllowedMethods:   cfg.CORS.AllowedMethods,
-			AllowedHeaders:   cfg.CORS.AllowedHeaders,
-			ExposedHeaders:   cfg.CORS.ExposedHeaders,
-			AllowCredentials: cfg.CORS.AllowCredentials,
-			MaxAge:           cfg.CORS.MaxAge,
-		})
-		httpHandler = corsMiddleware(httpHandler)
-		log.Println("[CORS] CORS middleware enabled")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	if cfg.HasAuth() {
-		provider := cfg.GetDefaultProvider()
-		if provider != nil && provider.JWKSURL != "" {
-			log.Printf("[AUTH] Initializing JWKS provider: %s", provider.JWKSURL)
-
-			jwksProvider := auth.NewJWKSProvider(provider.JWKSURL, provider.RefreshInterval)
-
-			if err := jwksProvider.Start(ctx); err != nil {
-				log.Fatalf("[AUTH] Failed to initialize JWKS provider: %v", err)
-			}
-
-			validator := auth.NewValidator(jwksProvider, provider.Issuer)
-
-			httpHandler = middleware.NewAuthMiddleware(validator, registry)(httpHandler)
-			log.Println("[AUTH] Auth middleware enabled")
-		} else {
-			log.Println("[AUTH] Auth configured but no valid provider found, skipping auth middleware")
-		}
+	adminCreds := admin.LoadCredentialsFromEnv()
+	if adminCreds.Enabled {
+		log.Printf("[ADMIN] Admin UI enabled at /admin for %s", adminCreds.Email)
 	} else {
-		log.Println("[AUTH] No auth providers configured, auth middleware disabled")
+		log.Println("[ADMIN] Admin UI login disabled; set ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_SESSION_SECRET")
 	}
 
-	httpHandler = middleware.NewLoggingMiddleware(registry)(httpHandler)
+	rootMux := http.NewServeMux()
+	adminHandler := admin.NewHandler(manager, configPath, adminCreds)
+	adminHandler.Register(rootMux)
+	rootMux.Handle("/", manager.Handler())
+
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: rootMux,
+	}
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigChan
+
 		log.Printf("[PROXY] Received signal %v, shutting down...", sig)
-		cancel() // Stop JWKS background refresh
-		os.Exit(0)
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("[PROXY] Shutdown error: %v", err)
+		}
+
+		manager.Close()
 	}()
 
 	// Start server
 	log.Printf("[PROXY] Starting server on port %s", port)
-	if err := http.ListenAndServe(":"+port, httpHandler); err != nil {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("[PROXY] Server failed: %v", err)
 	}
 }
 
 func loadRedisOptions() (*redis.Options, string, error) {
-	for _, envName := range []string{"REDIS_PRIVATE_URL", "REDIS_ADDR"} {
+	for _, envName := range []string{"REDIS_PRIVATE_URL", "REDIS_URL", "REDIS_ADDR"} {
 		value := strings.TrimSpace(os.Getenv(envName))
 
 		if value == "" {

@@ -82,18 +82,41 @@ func handlePreflight(
 	methods map[string]bool,
 	headers map[string]bool,
 ) {
+	appendVary(w.Header(), "Origin")
+	appendVary(w.Header(), "Access-Control-Request-Method")
+	appendVary(w.Header(), "Access-Control-Request-Headers")
+
 	if !isOriginAllowed(origin, allowedOrigins) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", origin)
+	requestMethod := strings.ToUpper(strings.TrimSpace(r.Header.Get("Access-Control-Request-Method")))
+	if requestMethod != "" && !methods[requestMethod] {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	requestHeaders := strings.Split(r.Header.Get("Access-Control-Request-Headers"), ",")
+	for _, requestHeader := range requestHeaders {
+		headerName := strings.ToLower(strings.TrimSpace(requestHeader))
+		if headerName == "" {
+			continue
+		}
+		if !headers[headerName] {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+
+	allowOrigin := origin
+	if allowedOrigins["*"] && !cfg.AllowCredentials {
+		allowOrigin = "*"
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 	w.Header().Set("Access-Control-Allow-Methods", strings.Join(cfg.AllowedMethods, ", "))
 	w.Header().Set("Access-Control-Allow-Headers", strings.Join(cfg.AllowedHeaders, ", "))
-
-	if len(cfg.ExposedHeaders) > 0 {
-		w.Header().Set("Access-Control-Expose-Headers", strings.Join(cfg.ExposedHeaders, ", "))
-	}
 
 	if cfg.AllowCredentials {
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -113,11 +136,18 @@ func handleActualRequest(
 	cfg *CORSConfig,
 	allowedOrigins map[string]bool,
 ) {
+	appendVary(w.Header(), "Origin")
+
 	if !isOriginAllowed(origin, allowedOrigins) {
 		return
 	}
 
-	w.Header().Set("Access-Control-Allow-Origin", origin)
+	allowOrigin := origin
+	if allowedOrigins["*"] && !cfg.AllowCredentials {
+		allowOrigin = "*"
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
 
 	if len(cfg.ExposedHeaders) > 0 {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(cfg.ExposedHeaders, ", "))
@@ -140,4 +170,15 @@ func isOriginAllowed(origin string, allowedOrigins map[string]bool) bool {
 	}
 
 	return allowedOrigins[originLower]
+}
+
+func appendVary(headers http.Header, value string) {
+	for _, existing := range headers.Values("Vary") {
+		for _, token := range strings.Split(existing, ",") {
+			if strings.EqualFold(strings.TrimSpace(token), value) {
+				return
+			}
+		}
+	}
+	headers.Add("Vary", value)
 }

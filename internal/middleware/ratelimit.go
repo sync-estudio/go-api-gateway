@@ -39,7 +39,7 @@ func NewRateLimiter(client *redis.Client, registry *service.Registry) func(http.
 						requests = svc.RateLimit.Requests
 					}
 					if svc.RateLimit.Window > 0 {
-						window = svc.RateLimit.Window
+						window = svc.RateLimit.Window.Std()
 					}
 				}
 			}

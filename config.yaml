@@ -5,7 +5,6 @@ proxy:
 cors:
   enabled: true
   allowed_origins:
-    - "http://localhost:3000"
     - "https://example.com"
   allowed_methods:
     - "GET"
@@ -21,22 +20,28 @@ cors:
   allow_credentials: false
   max_age: 86400
 
-auth:
-  default_provider: "auth-service"
+# auth:
+#   default_provider: "auth-service"
 
-  providers:
-    auth-service:
-      type: "jwks"
-      jwks_url: "http://auth-service.railway.internal:8080/auth/jwks"
-      refresh_interval: 1h
-      issuer: "" # Optional but recommended
+#   providers:
+#     auth-service:
+#       type: "jwks"
+#       jwks_url: "http://auth-service.railway.internal:8080/auth/jwks"
+#       refresh_interval: 1h
+#       issuer: "" # Optional but recommended
 
 services:
   - url: "http://ima-warehouse-service.railway.internal:8080"
     alias: /warehouse
     auth:
       enabled: false
-      provider: "" # uses default provider if empty
+    rate_limit:
+      requests: 200
+      window: 1m
+  - url: "http://ima-reports-service.railway.internal:8080"
+    alias: /reports
+    auth:
+      enabled: false
     rate_limit:
       requests: 200
       window: 1m

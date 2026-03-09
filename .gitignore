@@ -15,3 +15,5 @@ coverage.*
 go.work
 go.work.sum
 .env
+ui/node_modules/
+ui/dist/

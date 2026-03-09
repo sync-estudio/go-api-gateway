@@ -11,6 +11,12 @@ import (
 func NewAuthMiddleware(validator *auth.Validator, registry *service.Registry) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Preflight requests should pass through without auth checks.
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// Check if this route requires authentication
 			svc := registry.FindServiceForPath(r.URL.Path)
 			if svc == nil || !svc.Auth.Enabled {

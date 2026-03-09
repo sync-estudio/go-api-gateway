@@ -8,8 +8,13 @@ services:
     environment:
       - PORT=8080
       - REDIS_ADDR=redis:6379
+      - CONFIG_PATH=/app/config/config.json
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
+      - ADMIN_SESSION_TTL=${ADMIN_SESSION_TTL:-30m}
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
+      - ./config:/app/config
     depends_on:
       redis:
         condition: service_healthy
