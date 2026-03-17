@@ -16,8 +16,13 @@ cors:
   allowed_headers:
     - "Content-Type"
     - "Authorization"
+    - "x-user-id"
+    - "x-user-name"
+    - "x-user-role"
+    - "X-Correlation-Id"
+    - "Idempotency-Key"
   exposed_headers: []
-  allow_credentials: false
+  allow_credentials: true
   max_age: 86400
 
 # auth:
@@ -44,4 +49,11 @@ services:
       enabled: false
     rate_limit:
       requests: 200
+      window: 1m
+  - url: "http://ima-api-monorepo.railway.internal:4000"
+    alias: /api
+    auth:
+      enabled: false
+    rate_limit:
+      requests: 400
       window: 1m
