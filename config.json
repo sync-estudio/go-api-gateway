@@ -1,52 +1,77 @@
 {
-  "server": {
-    "port": 8080,
-    "cors": {
-      "allowed_origins": [
-        "http://localhost:3000",
-        "https://reportes.syncestudio.com",
-        "https://ima-cloud.syncestudio.com"
-      ],
-      "allowed_methods": [
-        "GET",
-        "POST",
-        "PUT",
-        "PATCH",
-        "DELETE",
-        "OPTIONS"
-      ],
-      "allowed_headers": [
-        "Content-Type",
-        "Authorization",
-        "X-Correlation-ID",
-        "Idempotency-Key"
-      ],
-      "allow_credentials": true
-    }
+  "proxy": {
+    "host": "localhost",
+    "port": 8080
   },
-  "routes": [
+  "auth": {
+    "default_provider": "",
+    "providers": {}
+  },
+  "cors": {
+    "allowed_origins": [
+      "https://example.com"
+    ],
+    "allowed_methods": [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "PATCH",
+      "OPTIONS"
+    ],
+    "allowed_headers": [
+      "Content-Type",
+      "Authorization",
+      "x-user-id",
+      "x-user-name",
+      "x-user-role",
+      "X-Correlation-Id",
+      "Idempotency-Key"
+    ],
+    "exposed_headers": [],
+    "allow_credentials": true,
+    "max_age": 86400,
+    "enabled": true
+  },
+  "services": [
     {
-      "path_prefix": "/api",
-      "target": "http://localhost:4000",
+      "url": "http://localhost:8081",
+      "alias": "/warehouse",
       "strip_prefix": false,
-      "timeout": "30s"
+      "auth": {
+        "enabled": false,
+        "provider": ""
+      },
+      "rate_limit": {
+        "requests": 200,
+        "window": "1m0s"
+      }
     },
     {
-      "path_prefix": "/warehouse",
-      "target": "http://localhost:8081",
-      "strip_prefix": true,
-      "timeout": "10s"
+      "url": "http://localhost:8082",
+      "alias": "/reports",
+      "strip_prefix": false,
+      "auth": {
+        "enabled": false,
+        "provider": ""
+      },
+      "rate_limit": {
+        "requests": 200,
+        "window": "1m0s"
+      }
     },
     {
-      "path_prefix": "/reports",
-      "target": "http://localhost:8082",
-      "strip_prefix": true,
-      "timeout": "15s"
+      "url": "http://localhost:4000",
+      "alias": "/api",
+      "strip_prefix": false,
+      "auth": {
+        "enabled": false,
+        "provider": ""
+      },
+      "rate_limit": {
+        "requests": 400,
+        "window": "1m0s"
+      }
     }
-  ],
-  "rate_limit": {
-    "enabled": false,
-    "requests_per_second": 100,
-    "burst": 200
-  }
+  ]
 }

@@ -5,7 +5,10 @@ proxy:
 cors:
   enabled: true
   allowed_origins:
-    - "https://example.com"
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "https://reportes.syncestudio.com"
+    - "https://ima-cloud.syncestudio.com"
   allowed_methods:
     - "GET"
     - "POST"
