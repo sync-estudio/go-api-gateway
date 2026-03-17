@@ -27,15 +27,17 @@ func NewProxy(targetURL string) (*httputil.ReverseProxy, error) {
 	return proxy, nil
 }
 
-func RegisterHandler(mux *http.ServeMux, serviceRoute string, proxy *httputil.ReverseProxy) error {
+func RegisterHandler(mux *http.ServeMux, serviceRoute string, proxy *httputil.ReverseProxy, stripPrefix bool) error {
 	if !strings.HasPrefix(serviceRoute, "/") {
 		return errors.New("route must start with /")
 	}
 
-	// Normalize to have a trailing slash for subtree routing.
 	if strings.HasSuffix(serviceRoute, "/") {
-		// Strip prefix when proxying.
-		mux.Handle(serviceRoute, http.StripPrefix(strings.TrimSuffix(serviceRoute, "/"), proxy))
+		if stripPrefix {
+			mux.Handle(serviceRoute, http.StripPrefix(strings.TrimSuffix(serviceRoute, "/"), proxy))
+		} else {
+			mux.Handle(serviceRoute, proxy)
+		}
 		return nil
 	}
 
@@ -44,7 +46,10 @@ func RegisterHandler(mux *http.ServeMux, serviceRoute string, proxy *httputil.Re
 	// Redirect bare path to trailing slash.
 	mux.Handle(serviceRoute, http.RedirectHandler(base, http.StatusMovedPermanently))
 
-	// Strip prefix when proxying.
-	mux.Handle(base, http.StripPrefix(strings.TrimSuffix(base, "/"), proxy))
+	if stripPrefix {
+		mux.Handle(base, http.StripPrefix(strings.TrimSuffix(base, "/"), proxy))
+	} else {
+		mux.Handle(base, proxy)
+	}
 	return nil
 }

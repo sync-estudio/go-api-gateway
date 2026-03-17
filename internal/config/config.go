@@ -103,10 +103,11 @@ type ServiceRateLimitConfig struct {
 
 // ServiceConfig holds a service URL and its route alias.
 type ServiceConfig struct {
-	URL       string                 `yaml:"url" json:"url"`
-	Alias     string                 `yaml:"alias" json:"alias"`
-	Auth      ServiceAuthConfig      `yaml:"auth" json:"auth"`
-	RateLimit ServiceRateLimitConfig `yaml:"rate_limit" json:"rate_limit"`
+	URL         string                 `yaml:"url" json:"url"`
+	Alias       string                 `yaml:"alias" json:"alias"`
+	StripPrefix bool                   `yaml:"strip_prefix" json:"strip_prefix"`
+	Auth        ServiceAuthConfig      `yaml:"auth" json:"auth"`
+	RateLimit   ServiceRateLimitConfig `yaml:"rate_limit" json:"rate_limit"`
 }
 
 // CORSConfig holds CORS middleware configuration.

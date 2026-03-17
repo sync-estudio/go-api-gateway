@@ -36,7 +36,7 @@ cors:
 #       issuer: "" # Optional but recommended
 
 services:
-  - url: "http://localhost:8081"
+  - url: "http://host.docker.internal:8081"
     alias: /warehouse
     strip_prefix: false
     auth:
@@ -44,7 +44,7 @@ services:
     rate_limit:
       requests: 200
       window: 1m
-  - url: "http://localhost:8082"
+  - url: "http://host.docker.internal:8082"
     alias: /reports
     strip_prefix: false
     auth:
@@ -52,7 +52,7 @@ services:
     rate_limit:
       requests: 200
       window: 1m
-  - url: "http://localhost:4000"
+  - url: "http://host.docker.internal:4000"
     alias: /api
     strip_prefix: false
     auth:

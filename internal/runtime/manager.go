@@ -167,7 +167,7 @@ func buildGatewayHandler(cfg *config.YAMLConfig, redisClient *redis.Client) (*ga
 			return nil, fmt.Errorf("failed to create proxy for %s: %w", svc.Alias, err)
 		}
 
-		if err := proxy.RegisterHandler(mux, svc.Alias, p); err != nil {
+		if err := proxy.RegisterHandler(mux, svc.Alias, p, svc.StripPrefix); err != nil {
 			return nil, fmt.Errorf("failed to register handler for %s: %w", svc.Alias, err)
 		}
 
