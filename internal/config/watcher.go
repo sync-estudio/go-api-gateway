@@ -100,11 +100,6 @@ func (rc *ReloadableConfig) reload() {
 	log.Printf("[CONFIG] Configuration reloaded successfully")
 }
 
-func mergeConfigs(oldCfg, newCfg *YAMLConfig) {
-	newCfg.Proxy = oldCfg.Proxy
-	newCfg.Auth = oldCfg.Auth
-}
-
 func (rc *ReloadableConfig) Get() YAMLConfig {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
