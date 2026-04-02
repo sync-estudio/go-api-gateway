@@ -69,8 +69,9 @@ type AuthConfig struct {
 type YAMLConfig struct {
 	Proxy    ProxyConfig     `yaml:"proxy"`
 	Auth     AuthConfig      `yaml:"auth"`
-	CORS     CORSConfig      `yaml:"cors"`
-	Services []ServiceConfig `yaml:"services"`
+	CORS      CORSConfig      `yaml:"cors"`
+	Services  []ServiceConfig `yaml:"services"`
+	HotReload HotReloadConfig `yaml:"hot_reload"`
 }
 
 // LoadFromFile loads configuration from a YAML file.
