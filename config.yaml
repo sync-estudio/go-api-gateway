@@ -17,8 +17,9 @@ cors:
   allowed_headers:
     - "Content-Type"
     - "Authorization"
+    - "x-user-id"
   exposed_headers: []
-  allow_credentials: false
+  allow_credentials: true
   max_age: 86400
 
 auth:
