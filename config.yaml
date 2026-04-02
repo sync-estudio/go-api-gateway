@@ -40,3 +40,11 @@ services:
     rate_limit:
       requests: 200
       window: 1m
+  - url: "http://ima-reports-service.railway.internal:8080"
+    alias: /reports
+    auth:
+      enabled: false
+      provider: ""
+    rate_limit:
+      requests: 200
+      window: 1m
